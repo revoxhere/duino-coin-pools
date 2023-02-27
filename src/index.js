@@ -1,19 +1,27 @@
 /* Duino-Coin Pool
 For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
-2019-2022 Duino-Coin community */
+2019-2023 Duino-Coin community */
 
 const net = require("net");
 const handle = require("./connectionHandler");
 const sync = require("./sync");
 const { spawn } = require("child_process");
 const log = require("./logging");
-const { use_ngrok, port, host, autoRestart } = require("../config/config.json");
+let { use_ngrok, port, host, autoRestart, guessPort } = require("../config/config.json");
 
 connections = 0;
 
+const getRand = (min, max) => {
+    return Math.floor(Math.random() * (max-min) + min);
+};
+
+if (guessPort) {
+    port = getRand(1000, 9999);
+}
+
 if (use_ngrok) {
-    ngrok = spawn(`./ngrok`, [`tcp`, `-region`, `eu`, `${port}`]);
+    ngrok = spawn(`ngrok`, ["tcp", "--region", "eu", "2811"]);
 
     ngrok.stderr.on("data", (data) => {
         log.error(`Ngrok stderr: ${data}`);
