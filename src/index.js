@@ -3,6 +3,7 @@ For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
 2019-2023 Duino-Coin community */
 
+const fs = require("fs");
 const net = require("net");
 const handle = require("./connectionHandler");
 const sync = require("./sync");
@@ -17,7 +18,10 @@ const getRand = (min, max) => {
 };
 
 if (guessPort) {
+    configFile = require("../config/config.json");
     port = getRand(1000, 9999);
+    configFile.port = port;
+    fs.writeFileSync(`${__dirname}/../config/config.json`, JSON.stringify(configFile, null, 4), 'utf8');
 }
 
 if (use_ngrok) {
