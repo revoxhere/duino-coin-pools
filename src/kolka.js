@@ -1,26 +1,19 @@
 /* Duino-Coin Kolka algorithms and formulas
 For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
-2019-2022 Duino-Coin community */
+2019-2024 Duino-Coin community */
 
 const poolRewards = require("../config/poolRewards.json");
 const highestPCdiff = poolRewards["NET"]["difficulty"] * 5.19202;
 const highestESPdiff = poolRewards["ESP32"]["difficulty"];
 const highestAVRdiff = poolRewards["DUE"]["difficulty"];
-const gpuMiningPercentage =
-    poolRewards["EXTREME"]["kolka_decrease_perc"] * 0.01;
+const gpuMiningPercentage = poolRewards["EXTREME"]["kolka_decrease_perc"] * 0.01;
 const pcMiningPercentage = poolRewards["NET"]["kolka_decrease_perc"] * 0.01;
 const espMiningPercentage = poolRewards["ESP32"]["kolka_decrease_perc"] * 0.01;
 const avrMiningPercentage = poolRewards["AVR"]["kolka_decrease_perc"] * 0.01;
 
 function V1(hashrate, difficulty, workers, reward_div) {
     let output;
-
-    if (workers > 4) {
-        workers = workers - 3;
-    } else {
-        workers = 1;
-    }
 
     try {
         output = Math.log(hashrate) / reward_div;
@@ -58,15 +51,18 @@ function V2(currDiff) {
         case "ESP8266":
             return "ESP8266H";
         case "ESP8266H":
-            return "ESP32";
+            return "ESP8266H";
 
         case "ESP8266N":
             return "ESP8266NH";
         case "ESP8266NH":
-            return "ESP32";
+            return "ESP8266NH";
 
         case "ESP32":
-            return "LOW";
+            return "ESP32S";
+        case "ESP32S":
+            return "ESP32S";
+
         case "LOW":
             return "MEDIUM";
         case "MEDIUM":
@@ -99,8 +95,11 @@ function V2_REVERSE(currDiff) {
         case "ESP8266":
             return "ESP8266";
 
+        case "ESP32S":
+            return "ESP32"
         case "ESP32":
             return "ESP32";
+
         case "LOW":
             return "LOW";
         case "MEDIUM":
@@ -112,22 +111,49 @@ function V2_REVERSE(currDiff) {
     }
 }
 
-function V3(sharetime, expectedSharetime, difficulty) {
-    const p = 2 - sharetime / expectedSharetime;
+function V3(sharetime, expectedSharetime, difficulty, hashrate) {
+    // Base difficulty calculation from hashrate
+    let newDifficulty = Math.floor((hashrate / 100) * expectedSharetime);
+
+    // Determine the deviation from the expected share time
+    const deviation = sharetime / expectedSharetime;
+
+    const hashrateScalingFactor = 0.28;
+
+    // Adjust difficulty based on deviation
+    if (deviation < 0.9) {
+        // If actual share time is significantly lower, increase difficulty more aggressively
+        newDifficulty *= (1 + hashrateScalingFactor);
+    } else if (deviation > 1.1) {
+        // If actual share time is significantly higher, decrease difficulty more aggressively
+        newDifficulty *= (1 - hashrateScalingFactor);
+    }
+
+    // Apply minimum difficulty constraint
+    const minDifficulty = 5000;
+    newDifficulty = Math.max(newDifficulty, minDifficulty);
+
+    return parseInt(newDifficulty);
+}
+
+
+function V3_OLD(sharetime, expectedSharetime, difficulty, hashrate) {
+    const p = 2 - (sharetime / expectedSharetime);
     let newDifficulty = difficulty;
 
-    if (p < 1 || p > 1.1) {
+    if (p < 0.9 || p > 1.1) {
         newDifficulty = difficulty * p;
 
         if (newDifficulty < 0) {
-            newDifficulty =
-                Math.floor(parseInt(difficulty / (Math.abs(p) + 2)) * 0.9) + 1;
+            newDifficulty = Math.floor(
+                                parseInt(difficulty / (Math.abs(p) + 2)
+                            ) * 0.9) + 1;
         } else if (newDifficulty === 0) {
             newDifficulty = difficulty * 0.5;
         }
     }
 
-    if (newDifficulty <= 2500) newDifficulty = 2500;
+    if (newDifficulty <= 5000) newDifficulty = 5000;
 
     return parseInt(newDifficulty);
 }
