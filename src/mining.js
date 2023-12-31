@@ -99,7 +99,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
     let expectedSharetime, reportedHashrate; 
     let hashrate_calc, reward;
     let hashrateIsEstimated, hashrate, maxHashrate, minHashrate;
-    let blockProbability, reward, kolka_drop;
+    let blockProbability, kolka_drop;
 
     let isFirstShare = true;
     conn.acceptedShares = 0;
