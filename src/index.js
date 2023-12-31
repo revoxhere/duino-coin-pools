@@ -1,7 +1,7 @@
 /* Duino-Coin Pool
 For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
-2019-2023 Duino-Coin community */
+2019-2024 Duino-Coin community */
 
 const fs = require("fs");
 const net = require("net");
