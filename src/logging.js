@@ -1,7 +1,7 @@
 /* Duino-Coin Pool logging system
 For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
-2019-2022 Duino-Coin community */
+2019-2024 Duino-Coin community */
 
 const chalk = require("chalk");
 const blue = chalk.blue;
