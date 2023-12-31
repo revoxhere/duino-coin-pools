@@ -95,6 +95,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
     let this_miner_chipid, minerName, sharetime;
     let feedback_sent = 0;
     let start_hashrate = 0;
+    let diff = 1;
 
     let isFirstShare = true;
     conn.acceptedShares = 0;
