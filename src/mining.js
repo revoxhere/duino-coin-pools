@@ -94,7 +94,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
     let random, newHash, reqDifficulty, miningKey;
     let this_miner_chipid, minerName, sharetime;
     let feedback_sent = 0;
-    let start_hashrate = 0;
+    let start_hashrate = -1;
     let diff = 1;
     let expectedSharetime, reportedHashrate; 
     let hashrate_calc, reward;
@@ -307,14 +307,14 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
             conn.overrideDifficulty = kolka.V2_REVERSE(reqDifficulty);
             conn.rejectedShares++;
             conn.write("BAD,Too high starting difficulty\n");
-            start_hashrate = 0;
+            start_hashrate = -1;
             diff = getDiff(poolRewards, conn.overrideDifficulty);
             feedback_sent = new Date();
         } else if (hashrate >= maxHashrate) {
             conn.overrideDifficulty = kolka.V2(reqDifficulty);
             conn.rejectedShares++;
             conn.write("BAD,Too low starting difficulty\n");
-            start_hashrate = 0;
+            start_hashrate = -1;
             diff = getDiff(poolRewards, conn.overrideDifficulty);
             feedback_sent = new Date();
         } else if (miner_res === random) {
@@ -410,7 +410,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
             }
 
             //if (conn.this_miner_id > 4) {
-                kolka_drop = conn.this_miner_id - 3;
+                kolka_drop = conn.this_miner_id;
             //} else {
             //    kolka_drop = 1;
             //}
