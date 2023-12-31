@@ -1,7 +1,7 @@
 /* Duino-Coin Mining handler
 For documention about these functions see
 https://github.com/revoxhere/duino-coin/blob/useful-tools
-2019-2023 Duino-Coin community */
+2019-2024 Duino-Coin community */
 
 const crypto = require("crypto");
 const request = require('sync-request');
@@ -17,7 +17,9 @@ const {
     max_shares_per_minute,
 } = require("../config/config.json");
 const poolRewards = require("../config/poolRewards.json");
+const pc_diff_tiers = ["EXTREME", "NET", "MEDIUM", "LOW"];
 const algo = "DUCO-S1";
+
 
 let lastBlockhash = initialBlockHash;
 globalBlocks = [];
@@ -48,29 +50,14 @@ const checkWorkers = (ipWorkers, usrWorkers, serverMiners, username) => {
 
     if (Math.max(ipWorkers, usrWorkers, serverMiners) > maxWorkers) {
         /* Check if user has worker limit upgrades */
-        if (!cachedItems.hasOwnProperty(username) && getRand(50) != 10) {
-            res = request('GET', `https://server.duinocoin.com/v2/users/${username}`)
-            userItems = JSON.parse(res.getBody('utf8')).result.items;
-            cachedItems[username] = userItems;
+        if (!cachedItems.hasOwnProperty(username)) {
+           res = request('GET', `https://server.duinocoin.com/v2/users/${username}`)
+           userItems = JSON.parse(res.getBody('utf8')).result.items;
+           cachedItems[username] = userItems;
         } else {
-            userItems = cachedItems[username];
+           userItems = cachedItems[username];
         }
-
-        if (userItems.includes(10) && userItems.includes(11)) {
-            if (Math.max(ipWorkers, usrWorkers, serverMiners) > 125) {
-                return true
-            }
-        } else if (userItems.includes(11)) {
-            if (Math.max(ipWorkers, usrWorkers, serverMiners) > 100) {
-                return true
-            }
-        } else if (userItems.includes(10)) {
-            if (Math.max(ipWorkers, usrWorkers, serverMiners) > 75) {
-                return true
-            }
-        } else {
-            return true
-        }
+        
     }
     return false;
 };
@@ -97,10 +84,17 @@ const percDiff = (a, b) => {
     return Math.floor(100 * Math.abs((a - b) / ((a + b) / 2)));
 };
 
+const avg_from_array = (array) => {
+    const sum = array.reduce((acc, curr) => acc + curr, 0); 
+    const average = sum / array.length; 
+    return average; 
+};
+
 const miningHandler = async (conn, data, mainListener, usingAVR) => {
     let random, newHash, reqDifficulty, miningKey;
     let this_miner_chipid, minerName, sharetime;
     let feedback_sent = 0;
+    let start_hashrate = 0;
 
     let isFirstShare = true;
     conn.acceptedShares = 0;
@@ -113,6 +107,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
     conn.lastminshares = 0;
     conn.lastsharereset = Math.floor(new Date() / 1000);
     conn.ping = 0;
+    conn.sharetimes_list = []
 
     // remove the main listener to not re-trigger miningHandler()
     conn.removeListener("data", mainListener);
@@ -122,6 +117,8 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
 
         if (isFirstShare) {
             reqDifficulty = data[2] ? data[2] : "NET";
+            if (!poolRewards.hasOwnProperty(reqDifficulty)) reqDifficulty = "NET";
+            diff = getDiff(poolRewards, reqDifficulty);
 
             if (reqDifficulty == "ESP32") worker_add = 0.5;
             else worker_add = 1;
@@ -174,8 +171,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
         } else conn.iot_reading = null;
 
         if (conn.remoteAddress != "127.0.0.1") {
-            if (
-                await checkWorkers(
+            if (await checkWorkers(
                     workers[conn.remoteAddress],
                     usrWorkers[conn.username],
                     conn.serverMiners,
@@ -185,8 +181,7 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
                 conn.reject_shares = "Too many workers";
             }
         } else {
-            if (
-                await checkWorkers(
+            if (await checkWorkers(
                     0,
                     usrWorkers[conn.username],
                     conn.serverMiners,
@@ -197,27 +192,15 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
             }
         }
 
-        if (
-            conn.this_miner_id >
-            Math.max(
-                workers[conn.remoteAddress],
-                usrWorkers[conn.username],
-                conn.serverMiners
-            )
-        ) {
+        if (conn.this_miner_id >
+            Math.max(workers[conn.remoteAddress],
+                    usrWorkers[conn.username],
+                    conn.serverMiners)) {
             conn.this_miner_id = Math.max(
                 workers[conn.remoteAddress],
                 usrWorkers[conn.username],
                 conn.serverMiners
             );
-        }
-
-        if (!poolRewards.hasOwnProperty(reqDifficulty)) reqDifficulty = "NET";
-
-        let diff = getDiff(poolRewards, reqDifficulty);
-
-        if (!isFirstShare && diff > getDiff(poolRewards, "ESP8266NH")) {
-            diff = kolka.V3(sharetime, expectedSharetime, diff);
         }
 
         random = getRand(diff * 100) + 1;
@@ -236,6 +219,13 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
         sharetime = (answer_received - job_sent) / 1000;
         if (sharetime > conn.ping) {
             sharetime -= conn.ping;
+        }
+
+        // 1.5x to account that the average will be half the target
+        conn.sharetimes_list.push(sharetime*1.5);
+        if (conn.sharetimes_list.length > 50) {
+            // Memory leak prevention
+            conn.sharetimes_list.shift();
         }
 
         reportedHashrate = parseFloat(answer[1]);
@@ -283,13 +273,20 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
 
         if (isFirstShare) this_miner_chipid = answer[4];
 
-        if (
-            diff > getDiff(poolRewards, "DUE") &&
+        if (diff > getDiff(poolRewards, "DUE") &&
             diff <= getDiff(poolRewards, "ESP8266NH") &&
             percDiff(hashrate, hashrate_calc) > 15 &&
             sharetime >= 1.5
         ) {
             conn.reject_shares = "Modified hashrate";
+        }
+
+        if (
+            (conn.acceptedShares == 4 || (conn.acceptedShares > 4 && percDiff(hashrate, start_hashrate) > 15))
+            && pc_diff_tiers.includes(reqDifficulty)
+            ) {
+            start_hashrate = hashrate;
+            diff = kolka.V3(avg_from_array(conn.sharetimes_list), expectedSharetime, diff, hashrate);
         }
 
         reward_div = poolRewards[reqDifficulty]["reward"];
@@ -306,11 +303,15 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
             conn.overrideDifficulty = kolka.V2_REVERSE(reqDifficulty);
             conn.rejectedShares++;
             conn.write("BAD,Too high starting difficulty\n");
+            start_hashrate = 0;
+            diff = getDiff(poolRewards, conn.overrideDifficulty);
             feedback_sent = new Date();
         } else if (hashrate >= maxHashrate) {
             conn.overrideDifficulty = kolka.V2(reqDifficulty);
             conn.rejectedShares++;
             conn.write("BAD,Too low starting difficulty\n");
+            start_hashrate = 0;
+            diff = getDiff(poolRewards, conn.overrideDifficulty);
             feedback_sent = new Date();
         } else if (miner_res === random) {
             conn.acceptedShares++;
