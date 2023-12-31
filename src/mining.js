@@ -156,7 +156,6 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
             if (conn.overrideDifficulty)
                 reqDifficulty = conn.overrideDifficulty;
             else if (usingAVR) reqDifficulty = "AVR";
-            else reqDifficulty = data[2] ? data[2] : "NET";
         }
 
         if (data[3]) miningKey = Buffer.from(data[3]).toString("base64");
