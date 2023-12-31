@@ -96,6 +96,10 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
     let feedback_sent = 0;
     let start_hashrate = 0;
     let diff = 1;
+    let expectedSharetime, reportedHashrate; 
+    let hashrate_calc, reward;
+    let hashrateIsEstimated, hashrate, maxHashrate, minHashrate;
+    let blockProbability, reward, kolka_drop;
 
     let isFirstShare = true;
     conn.acceptedShares = 0;
@@ -405,11 +409,11 @@ const miningHandler = async (conn, data, mainListener, usingAVR) => {
                 conn.lastminshares = 0;
             }
 
-            if (conn.this_miner_id > 4) {
+            //if (conn.this_miner_id > 4) {
                 kolka_drop = conn.this_miner_id - 3;
-            } else {
-                kolka_drop = 1;
-            }
+            //} else {
+            //    kolka_drop = 1;
+            //}
 
             minersStats[conn.id] = {
                 u: conn.username,
