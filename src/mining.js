@@ -49,14 +49,7 @@ const checkWorkers = (ipWorkers, usrWorkers, serverMiners, username) => {
     if (maxWorkers <= 0) return false;
 
     if (Math.max(ipWorkers, usrWorkers, serverMiners) > maxWorkers) {
-        /* Check if user has worker limit upgrades */
-        if (!cachedItems.hasOwnProperty(username)) {
-           res = request('GET', `https://server.duinocoin.com/v2/users/${username}`)
-           userItems = JSON.parse(res.getBody('utf8')).result.items;
-           cachedItems[username] = userItems;
-        } else {
-           userItems = cachedItems[username];
-        }
+        return true;
         
     }
     return false;
