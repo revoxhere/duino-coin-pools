@@ -47,7 +47,7 @@ if (use_ngrok) {
 sync.updatePoolReward();
 sync.login();
 
-require("./dashboard");
+// require("./dashboard");
 
 const server = net.createServer(handle);
 server.listen(port, host, 0, () => {
