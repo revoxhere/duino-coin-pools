@@ -73,18 +73,31 @@ const get_ngrok_ip = async () => {
 const get_pool_ip = async () => {
     while (true) {
         try {
-            let res = await axios.get("https://api.ipify.org", {
+            let res = await axios.get("https://server.duinocoin.com/ip", {
                 timeout: TIMEOUT,
             });
 
-            ip = res.data;
+            ip = res.data.result;
             port = require("../config/config.json").port;
 
-            log.info(`Fetched pool IP: ${ip}:${port}`);
+            log.info(`Fetched pool IP from server.duinocoin.com: ${ip}:${port}`);
+            break;
         } catch (err) {
-            log.error(`Can't fetch pool IP: ${err}`);
+            log.error(`Can't fetch pool IP: ${err}, retrying with ipify`);
+            try {
+                let res = await axios.get("https://api.ipify.org", {
+                    timeout: TIMEOUT,
+                });
+
+                ip = res.data;
+                port = require("../config/config.json").port;
+
+                log.info(`Fetched pool IP from ipify: ${ip}:${port}`);
+                break;
+            } catch (err) {
+                await wait(3000);
+            }
         }
-        await wait(60 * 1000);
     }
 };
 
@@ -173,8 +186,11 @@ const sync = async () => {
     const blockIncrease = mining.stats.globalShares.increase;
     require("./index");
 
-    if (use_ngrok && sync_count > 0 && sync_count % 50 == 0)
+    if (use_ngrok && sync_count > 0 && sync_count % 50 == 0) {
         await get_ngrok_ip();
+    } else if (sync_count > 0 && sync_count % 25 == 0) {
+        await get_pool_ip();
+    }
 
     const cpuUsage = await osu.cpu.usage();
     let ramUsage = await osu.mem.info();
@@ -199,7 +215,6 @@ const sync = async () => {
         `${base_sync_folder}/rewards_${poolName}.json`,
         JSON.stringify(mining.stats.balancesToUpdate, null, 0)
     );
-    // fs.writeFileSync(`${base_sync_folder}/statistics_${poolName}.json`, JSON.stringify(syncData, null, 0));
 
     const request_url =
         `https://${serverIP}/pool_sync/` +
@@ -219,7 +234,6 @@ const sync = async () => {
         fs.readFileSync(`${base_sync_folder}/workers_${poolName}.json`),
         `workers_${poolName}.json`
     );
-    // form.append('statistics', fs.readFileSync(`${base_sync_folder}/statistics_${poolName}.json`), `rewards_${poolName}.json`);
 
     try {
         sync_count++;
@@ -286,6 +300,8 @@ const updatePoolReward = () => {
         .catch((err) => {
             log.error(`Error updating bans file: ${err}`);
         });
+
+    setTimeout(updatePoolReward, SYNC_TIME*10);
 };
 
 const updateMinerCount = () => {
