@@ -81,11 +81,10 @@ const get_pool_ip = async () => {
             port = require("../config/config.json").port;
 
             log.info(`Fetched pool IP: ${ip}:${port}`);
-            break;
         } catch (err) {
             log.error(`Can't fetch pool IP: ${err}`);
         }
-        await wait(3000);
+        await wait(60 * 1000);
     }
 };
 
