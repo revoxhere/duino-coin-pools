@@ -23,6 +23,7 @@ const {
     server_sync_url,
     timeout,
     use_ngrok,
+    use_serveo
 } = require("../config/config.json");
 
 const SYNC_TIME = syncTime * 1000;
@@ -70,6 +71,12 @@ const get_ngrok_ip = async () => {
     }
 };
 
+const get_serveo_ip = async () => {
+    ip = "serveo.net";
+    port = require("../config/config.json").port;
+    log.info(`Set serveo IP: ${ip}:${port}`);
+}
+
 const get_pool_ip = async () => {
     while (true) {
         try {
@@ -103,6 +110,7 @@ const get_pool_ip = async () => {
 
 const login = async () => {
     if (use_ngrok) await get_ngrok_ip();
+    else if (use_serveo) await get_serveo_ip();
     else await get_pool_ip();
 
     const loginInfos = {
@@ -186,10 +194,14 @@ const sync = async () => {
     const blockIncrease = mining.stats.globalShares.increase;
     require("./index");
 
-    if (use_ngrok && sync_count > 0 && sync_count % 50 == 0) {
-        await get_ngrok_ip();
-    } else if (sync_count > 0 && sync_count % 25 == 0) {
-        await get_pool_ip();
+    if (sync_count > 0 && sync_count % 25 == 0) {
+        if (use_ngrok) {
+            await get_ngrok_ip();
+        } else if (use_serveo) {
+            await get_serveo_ip();
+        } else {
+            await get_pool_ip();
+        }
     }
 
     const cpuUsage = await osu.cpu.usage();
