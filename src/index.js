@@ -9,7 +9,7 @@ const handle = require("./connectionHandler");
 const sync = require("./sync");
 const { spawn } = require("child_process");
 const log = require("./logging");
-let { use_ngrok, port, host, autoRestart, guessPort } = require("../config/config.json");
+let { use_ngrok, port, host, autoRestart, guessPort, use_serveo } = require("../config/config.json");
 
 connections = 0;
 
@@ -22,6 +22,24 @@ if (guessPort) {
     port = getRand(1000, 9999);
     configFile.port = port;
     fs.writeFileSync(`${__dirname}/../config/config.json`, JSON.stringify(configFile, null, 4), 'utf8');
+}
+
+if (use_serveo) {
+    serveo = spawn(`ssh`, ["-R", `${port}:localhost:${port}`, "serveo.net"]);
+
+    serveo.stderr.on("data", (data) => {
+        log.info(`serveo data: ${data}`);
+    });
+
+    serveo.on("error", (err) => {
+        log.error(`serveo error: ${err}`);
+        process.exit(-1);
+    });
+
+    serveo.on("close", (code) => {
+        log.error(`serveo exited (code ${code})`);
+        process.exit(-1);
+    });
 }
 
 if (use_ngrok) {
